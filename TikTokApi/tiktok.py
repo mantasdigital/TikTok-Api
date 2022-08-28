@@ -51,6 +51,7 @@ class TikTokApi:
         use_test_endpoints: Optional[bool] = False,
         proxy: Optional[str] = None,
         executable_path: Optional[str] = None,
+        msToken: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -122,6 +123,7 @@ class TikTokApi:
                 use_test_endpoints=use_test_endpoints,
                 proxy=proxy,
                 executable_path=executable_path,
+                msToken=msToken,
                 *args,
                 **kwargs,
             )
@@ -150,6 +152,7 @@ class TikTokApi:
         self._signer_url = kwargs.get("external_signer", None)
         self._request_delay = kwargs.get("request_delay", None)
         self._requests_extra_kwargs = kwargs.get("requests_extra_kwargs", {})
+        self._msToken = kwargs.get("msToken", None)
 
         if kwargs.get("use_test_endpoints", False):
             global BASE_URL
@@ -206,6 +209,14 @@ class TikTokApi:
         else:
             verifyFp = kwargs.get("custom_verify_fp")
 
+        if kwargs.get("msToken") is None:
+            if self._msToken is not None:
+                msToken = self._msToken
+            else:
+                msToken = None
+        else:
+            msToken = kwargs.get("msToken")
+
         tt_params = None
         send_tt_params = kwargs.get("send_tt_params", False)
 
@@ -234,7 +245,7 @@ class TikTokApi:
         if not kwargs.get("send_tt_params", False):
             tt_params = None
 
-        query = {"verifyFp": verify_fp, "device_id": device_id, "_signature": signature}
+        query = {"verifyFp": verify_fp, "device_id": device_id, "_signature": signature, "msToken": msToken}
         url = "{}&{}".format(full_url, urlencode(query))
 
         h = requests.head(
@@ -427,6 +438,14 @@ class TikTokApi:
         else:
             verifyFp = kwargs.get("custom_verify_fp")
 
+        if kwargs.get("msToken") is None:
+            if self._msToken is not None:
+                msToken = self._msToken
+            else:
+                msToken = None
+        else:
+            msToken = kwargs.get("msToken")
+
         if kwargs.get("force_verify_fp_on_cookie_header", False):
             return {
                 "tt_webid": device_id,
@@ -438,6 +457,7 @@ class TikTokApi:
                 ),
                 "s_v_web_id": verifyFp,
                 "ttwid": kwargs.get("ttwid"),
+                "msToken": msToken
             }
         else:
             return {
@@ -449,6 +469,7 @@ class TikTokApi:
                     for i in range(16)
                 ),
                 "ttwid": kwargs.get("ttwid"),
+                "msToken": msToken
             }
 
     def get_bytes(self, **kwargs) -> bytes:
@@ -486,6 +507,7 @@ class TikTokApi:
                 "Range": "bytes=0-",
                 "Referer": "https://www.tiktok.com/",
                 "User-Agent": user_agent,
+                "msToken": self._get_cookies()["msToken"]
             },
             proxies=self._format_proxy(processed.proxy),
             cookies=self._get_cookies(**kwargs),
