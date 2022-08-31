@@ -48,37 +48,18 @@ class Sound:
         else:
             self.id = id
 
-    def info(self, use_html=False, **kwargs) -> dict:
+    def info(self, **kwargs) -> dict:
         """
         Returns a dictionary of TikTok's Sound/Music object.
-
-        - Parameters:
-            - use_html (bool): If you want to perform an HTML request or not.
-                Defaults to False to use an API call, which shouldn't get detected
-                as often as an HTML request.
-
 
         Example Usage
         ```py
         sound_data = api.sound(id='7016547803243022337').info()
         ```
         """
-        self.__ensure_valid()
-        if use_html:
-            return self.info_full(**kwargs)["musicInfo"]
+        return self.info_full()["musicInfo"]["music"]
 
-        processed = self.parent._process_kwargs(kwargs)
-        kwargs["custom_device_id"] = processed.device_id
-
-        path = "node/share/music/-{}?{}".format(self.id, self.parent._add_url_params())
-        res = self.parent.get_data(path, **kwargs)
-
-        if res.get("statusCode", 200) == 10203:
-            raise NotFoundException()
-
-        return res["musicInfo"]["music"]
-
-    def info_full(self, **kwargs) -> dict:
+    def info_full(self, use_html: bool = False, **kwargs) -> dict:
         """
         Returns all the data associated with a TikTok Sound.
 
@@ -91,21 +72,33 @@ class Sound:
         ```
         """
         self.__ensure_valid()
-        r = requests.get(
-            "https://www.tiktok.com/music/-{}".format(self.id),
-            headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-                "Accept-Encoding": "gzip, deflate",
-                "Connection": "keep-alive",
-                "User-Agent": self.parent._user_agent,
-            },
-            proxies=self.parent._format_proxy(kwargs.get("proxy", None)),
-            cookies=self.parent._get_cookies(**kwargs),
-            **self.parent._requests_extra_kwargs,
-        )
+        if not use_html:
+            processed = self.parent._process_kwargs(kwargs)
+            kwargs["custom_device_id"] = processed.device_id
 
-        data = extract_tag_contents(r.text)
-        return json.loads(data)["props"]["pageProps"]["musicInfo"]
+            path = "node/share/music/-{}?{}".format(self.id, self.parent._add_url_params())
+            res = self.parent.get_data(path, **kwargs)
+
+            if res.get("statusCode", 200) == 10203:
+                raise NotFoundException()
+
+            return res
+
+        else:
+            r = requests.get(
+                "https://www.tiktok.com/music/-{}".format(self.id),
+                headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+                    "Accept-Encoding": "gzip, deflate",
+                    "Connection": "keep-alive",
+                    "User-Agent": self.parent._user_agent,
+                },
+                cookies=self.parent._get_cookies(**kwargs)
+            )
+
+            data = extract_tag_contents(r.text)
+
+            return data["MobileMusicModule"]["musicInfo"]
 
     def videos(self, count=30, offset=0, **kwargs) -> Iterator[Video]:
         """
