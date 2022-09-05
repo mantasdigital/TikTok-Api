@@ -204,10 +204,16 @@ class TikTokApi:
                 random.choice(string.digits) for num in range(19)
             )
 
+    async def up(self, **kwargs):
         if self._signer_url is None:
-            self._browser = asyncio.get_event_loop().run_until_complete(
-                asyncio.gather(browser.create(**kwargs))
-            )[0]
+            self._browser = await browser.create(
+                request_delay=self._request_delay,
+                custom_device_id=self._custom_device_id,
+                custom_verify_fp=self._custom_verify_fp,
+                proxy=self._proxy,
+                executable_path=self._executable_path,
+                msToken=self._msToken,
+            )
 
             self._user_agent = self._browser.user_agent
 
@@ -232,7 +238,7 @@ class TikTokApi:
             self._language = "en"
             raise e from e
 
-    def get_data(self, path, subdomain="m", **kwargs) -> dict:
+    async def get_data(self, path, subdomain="m", **kwargs) -> dict:
         """Makes requests to TikTok and returns their JSON.
 
         This is all handled by the package so it's unlikely
@@ -274,15 +280,7 @@ class TikTokApi:
                 device_id,
                 signature,
                 tt_params,
-            ) = asyncio.get_event_loop().run_until_complete(
-                asyncio.gather(
-                    self._browser.sign_url(
-                        full_url, calc_tt_params=send_tt_params, **kwargs
-                    )
-                )
-            )[
-                0
-            ]
+            ) = await self._browser.sign_url(full_url, calc_tt_params=send_tt_params, **kwargs)
 
             user_agent = self._browser.user_agent
             referrer = self._browser.referrer
@@ -305,15 +303,14 @@ class TikTokApi:
         query = {"verifyFp": verify_fp, "device_id": device_id, "_signature": signature, "msToken": msToken}
         url = "{}&{}".format(full_url, urlencode(query))
 
-        h = requests.head(
-            url,
-            headers={"x-secsdk-csrf-version": "1.2.5", "x-secsdk-csrf-request": "1"},
-            proxies=self._format_proxy(processed.proxy),
-            **self._requests_extra_kwargs,
-        )
-
         csrf_token = None
         if subdomain == "m":
+            h = requests.head(
+                url,
+                headers={"x-secsdk-csrf-version": "1.2.5", "x-secsdk-csrf-request": "1"},
+                proxies=self._format_proxy(processed.proxy),
+                **self._requests_extra_kwargs,
+            )
             csrf_session_id = h.cookies["csrf_session_id"]
             csrf_token = h.headers["X-Ware-Csrf-Token"].split(",")[1]
             kwargs["csrf_session_id"] = csrf_session_id
@@ -337,11 +334,16 @@ class TikTokApi:
             "x-tt-params": tt_params,
         }
 
+        if kwargs.get("cookies") is not None:
+            cookies = kwargs.get("cookies")
+        else:
+            cookies = self._get_cookies(**kwargs)
+
         self.logger.debug(f"GET: %s\n\theaders: %s", url, headers)
         r = requests.get(
             url,
             headers=headers,
-            cookies=self._get_cookies(**kwargs),
+            cookies=cookies,
             proxies=self._format_proxy(processed.proxy),
             **self._requests_extra_kwargs,
         )
@@ -378,8 +380,7 @@ class TikTokApi:
                 raise NotAvailableException(10219, r, "Content not available for this region")
             elif statusCode != 0 and statusCode != -1:
                 raise TikTokException(statusCode, r,
-                                      ERROR_CODES.get(statusCode, f"TikTok sent an unknown StatusCode of {statusCode} "
-                                                      f"with the following text:\n{r.text}")
+                                      ERROR_CODES.get(statusCode, f"TikTok sent an unknown StatusCode of {statusCode}")
                                       )
 
             return r.json()
@@ -422,15 +423,6 @@ class TikTokApi:
             **self._requests_extra_kwargs,
         )
         return r.json()
-
-    def __del__(self):
-        """A basic cleanup method, called automatically from the code"""
-        if not self._is_context_manager:
-            self.logger.debug(
-                "TikTokAPI was shutdown improperlly. Ensure the instance is terminated with .shutdown()"
-            )
-            self.shutdown()
-        return
 
     def external_signer(self, url, custom_device_id=None, verifyFp=None):
         """Makes requests to an external signer instead of using a browser.
@@ -519,7 +511,7 @@ class TikTokApi:
                 "msToken": msToken
             }
 
-    def get_bytes(self, **kwargs) -> bytes:
+    async def get_bytes(self, **kwargs) -> bytes:
         """Returns TikTok's response as bytes, similar to get_data"""
         processed = self._process_kwargs(kwargs)
         kwargs["custom_device_id"] = processed.device_id
@@ -529,11 +521,7 @@ class TikTokApi:
                 device_id,
                 signature,
                 _,
-            ) = asyncio.get_event_loop().run_until_complete(
-                asyncio.gather(self._browser.sign_url(calc_tt_params=False, **kwargs))
-            )[
-                0
-            ]
+            ) = await self._browser.sign_url(calc_tt_params=False, **kwargs)
             user_agent = self._browser.user_agent
             referrer = self._browser.referrer
         else:
@@ -650,6 +638,10 @@ class TikTokApi:
         }
 
         return urlencode(query)
+
+    async def down(self):
+        self.logger.debug("Shutting down Playwright")
+        await self._browser._clean_up()
 
     def shutdown(self) -> None:
         with _thread_lock:

@@ -62,7 +62,7 @@ class Video:
         if self.id is None:
             raise TypeError("You must provide id or url parameter.")
 
-    def info(self, **kwargs) -> dict:
+    async def info(self, **kwargs) -> dict:
         """
         Returns a dictionary of TikTok's Video object.
 
@@ -71,9 +71,9 @@ class Video:
         video_data = api.video(id='7041997751718137094').info()
         ```
         """
-        return self.info_full(**kwargs)["itemInfo"]["itemStruct"]
+        return (await self.info_full(**kwargs))["itemInfo"]["itemStruct"]
 
-    def info_full(self, **kwargs) -> dict:
+    async def info_full(self, **kwargs) -> dict:
         """
         Returns a dictionary of all data associated with a TikTok Video.
 
@@ -92,9 +92,9 @@ class Video:
         path = "api/item/detail/?{}&{}".format(
             self.parent._add_url_params(), urlencode(query)
         )
-        return self.parent.get_data(path, **kwargs)
+        return await self.parent.get_data(path, **kwargs)
 
-    def bytes(self, **kwargs) -> bytes:
+    async def bytes(self, **kwargs) -> bytes:
         """
         Returns the bytes of a TikTok Video.
 
@@ -113,7 +113,7 @@ class Video:
         video_data = self.info(**kwargs)
         download_url = video_data["video"]["playAddr"]
 
-        return self.parent.get_bytes(url=download_url, **kwargs)
+        return await self.parent.get_bytes(url=download_url, **kwargs)
 
     def __extract_from_data(self) -> None:
         data = self.as_dict
@@ -136,7 +136,7 @@ class Video:
                 f"Failed to create Video with data: {data}\nwhich has keys {data.keys()}"
             )
 
-    def comments(self, count=20, offset=0, **kwargs) -> Iterator[Comment]:
+    async def comments(self, count=20, offset=0, **kwargs) -> Iterator[Comment]:
         """
         Returns Comments from the video
 
@@ -167,7 +167,7 @@ class Video:
                 Video.parent._add_url_params(), urlencode(query)
             )
 
-            api_response = Video.parent.get_data(
+            api_response = await Video.parent.get_data(
                 path, subdomain="www", ttwid=ttwid, **kwargs
             )
 

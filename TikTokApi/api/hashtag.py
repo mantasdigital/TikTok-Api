@@ -49,13 +49,13 @@ class Hashtag:
             self.as_dict = data
             self.__extract_from_data()
 
-    def info(self, **kwargs) -> dict:
+    async def info(self, **kwargs) -> dict:
         """
         Returns TikTok's dictionary representation of the hashtag object.
         """
-        return self.info_full(**kwargs)["challengeInfo"]["challenge"]
+        return (await self.info_full(**kwargs))["challengeInfo"]["challenge"]
 
-    def info_full(self, **kwargs) -> dict:
+    async def info_full(self, **kwargs) -> dict:
         """
         Returns all information sent by TikTok related to this hashtag.
 
@@ -79,14 +79,14 @@ class Hashtag:
             self.parent._add_url_params(), urlencode(query)
         )
 
-        data = self.parent.get_data(path, **kwargs)
+        data = await self.parent.get_data(path, **kwargs)
 
         if data["challengeInfo"].get("challenge") is None:
             raise NotFoundException("Challenge {} does not exist".format(self.name))
 
         return data
 
-    def videos(self, count=30, offset=0, **kwargs) -> Iterator[Video]:
+    async def videos(self, count=30, offset=0, **kwargs) -> Iterator[Video]:
         """Returns a dictionary listing TikToks with a specific hashtag.
 
         - Parameters:
@@ -110,7 +110,7 @@ class Hashtag:
                 "msToken": Hashtag.parent._get_cookies()["msToken"]
             }
             path = "api/challenge/item_list/?{}&{}".format(self.parent._add_url_params(), urlencode(query))
-            res = self.parent.get_data(path, send_tt_params=True, **kwargs)
+            res = await self.parent.get_data(path, send_tt_params=True, **kwargs)
             for result in res.get("itemList", []):
                 yield self.parent.video(data=result)
             if not res.get("hasMore", False):

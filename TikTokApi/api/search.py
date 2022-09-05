@@ -60,7 +60,7 @@ class Search:
         )
 
     @staticmethod
-    def search_type(search_term, obj_type, count=28, offset=0, **kwargs) -> Iterator:
+    async def search_type(search_term, obj_type, count=28, offset=0, **kwargs) -> Iterator:
         """
         Searches for users using an alternate endpoint than Search.users
 
@@ -103,7 +103,7 @@ class Search:
             else:
                 raise TypeError("invalid obj_type")
 
-            api_response = Search.parent.get_data(
+            api_response = await Search.parent.get_data(
                 path, subdomain=subdomain, ttwid=ttwid, **kwargs
             )
 

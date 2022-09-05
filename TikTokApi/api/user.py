@@ -57,7 +57,7 @@ class User:
             self.as_dict = data
             self.__extract_from_data()
 
-    def info(self, **kwargs):
+    async def info(self, **kwargs):
         """
         Returns a dictionary of TikTok's User object
 
@@ -66,9 +66,9 @@ class User:
         user_data = api.user(username='therock').info()
         ```
         """
-        return self.info_full(**kwargs)["user"]
+        return (await self.info_full(**kwargs))["user"]
 
-    def info_full(self, **kwargs) -> dict:
+    async def info_full(self, **kwargs) -> dict:
         """
         Returns a dictionary of information associated with this User.
         Includes statistics about this user.
@@ -101,10 +101,10 @@ class User:
             User.parent._add_url_params(), urlencode(query)
         )
 
-        res = User.parent.get_data(path, subdomain="m", **kwargs)
+        res = await User.parent.get_data(path, subdomain="m", **kwargs)
         return res["userInfo"]
 
-    def videos(self, count=30, cursor=0, **kwargs) -> Iterator[Video]:
+    async def videos(self, count=30, cursor=0, **kwargs) -> Iterator[Video]:
         """
         Returns an iterator yielding Video objects.
 
@@ -123,7 +123,7 @@ class User:
         kwargs["custom_device_id"] = processed.device_id
 
         if not self.user_id and not self.sec_uid:
-            self.__find_attributes()
+            await self.__find_attributes()
 
         first = True
         amount_yielded = 0
@@ -146,10 +146,12 @@ class User:
                 User.parent._add_url_params(), urlencode(query)
             )
 
-            res = User.parent.get_data(path, send_tt_params=True, **kwargs)
+            res = await User.parent.get_data(path, send_tt_params=True, **kwargs)
 
             videos = res.get("itemList", [])
             for video in videos:
+                if amount_yielded == count:
+                    return
                 amount_yielded += 1
                 yield self.parent.video(data=video)
 
@@ -162,7 +164,7 @@ class User:
             cursor = res["cursor"]
             first = False
 
-    def liked(self, count: int = 30, cursor: int = 0, **kwargs) -> Iterator[Video]:
+    async def liked(self, count: int = 30, cursor: int = 0, **kwargs) -> Iterator[Video]:
         """
         Returns a dictionary listing TikToks that a given a user has liked.
 
@@ -185,7 +187,7 @@ class User:
         first = True
 
         if self.user_id is None and self.sec_uid is None:
-            self.__find_attributes()
+            await self.__find_attributes()
 
         while amount_yielded < count:
             query = {
@@ -205,7 +207,7 @@ class User:
                 User.parent._add_url_params(), urlencode(query)
             )
 
-            res = self.parent.get_data(path, **kwargs)
+            res = await self.parent.get_data(path, **kwargs)
 
             if "itemList" not in res.keys():
                 if first:
@@ -251,10 +253,10 @@ class User:
         self.sec_uid = sec_uid
         self.username = username
 
-    def __find_attributes(self) -> None:
+    async def __find_attributes(self) -> None:
         # It is more efficient to check search first, since self.user_object() makes HTML request.
         found = False
-        for u in self.parent.search.users(self.username):
+        async for u in self.parent.search.search_type(self.username, "user"):
             if u.username == self.username:
                 found = True
                 self.__update_id_sec_uid_username(u.user_id, u.sec_uid, u.username)

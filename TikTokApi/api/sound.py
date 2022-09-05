@@ -48,7 +48,7 @@ class Sound:
         else:
             self.id = id
 
-    def info(self, **kwargs) -> dict:
+    async def info(self, **kwargs) -> dict:
         """
         Returns a dictionary of TikTok's Sound/Music object.
 
@@ -57,9 +57,9 @@ class Sound:
         sound_data = api.sound(id='7016547803243022337').info()
         ```
         """
-        return self.info_full()["musicInfo"]["music"]
+        return (await self.info_full())["musicInfo"]["music"]
 
-    def info_full(self, use_html: bool = False, **kwargs) -> dict:
+    async def info_full(self, use_html: bool = False, **kwargs) -> dict:
         """
         Returns all the data associated with a TikTok Sound.
 
@@ -77,7 +77,7 @@ class Sound:
             kwargs["custom_device_id"] = processed.device_id
 
             path = "node/share/music/-{}?{}".format(self.id, self.parent._add_url_params())
-            res = self.parent.get_data(path, **kwargs)
+            res = await self.parent.get_data(path, **kwargs)
 
             if res.get("statusCode", 200) == 10203:
                 raise NotFoundException()
@@ -100,7 +100,7 @@ class Sound:
 
             return data["MobileMusicModule"]["musicInfo"]
 
-    def videos(self, count=30, offset=0, **kwargs) -> Iterator[Video]:
+    async def videos(self, count=30, offset=0, **kwargs) -> Iterator[Video]:
         """
         Returns Video objects of videos created with this sound.
 
@@ -133,7 +133,7 @@ class Sound:
                 self.parent._add_url_params(), urlencode(query)
             )
 
-            res = self.parent.get_data(path, send_tt_params=True, **kwargs)
+            res = await self.parent.get_data(path, send_tt_params=True, **kwargs)
 
             for result in res.get("itemList", []):
                 yield self.parent.video(data=result)

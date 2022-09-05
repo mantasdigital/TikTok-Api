@@ -21,7 +21,7 @@ class Trending:
     parent: TikTokApi
 
     @staticmethod
-    def videos(count=30, **kwargs) -> Iterator[Video]:
+    async def videos(count=30, **kwargs) -> Iterator[Video]:
         """
         Returns Videos that are trending on TikTok.
 
@@ -56,7 +56,7 @@ class Trending:
             path = "api/recommend/item_list/?{}&{}".format(
                 Trending.parent._add_url_params(), urlencode(query)
             )
-            res = Trending.parent.get_data(path, ttwid=ttwid, **kwargs)
+            res = await Trending.parent.get_data(path, ttwid=ttwid, **kwargs)
             for result in res.get("itemList", []):
                 yield Video(data=result)
             amount_yielded += len(res.get("itemList", []))
